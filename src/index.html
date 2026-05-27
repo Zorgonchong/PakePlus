@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>现场操作员离线助手</title>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background: #f1f5f9;
+            color: #0f2c3f;
+            padding: 20px 16px 48px;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        /* 干净头部 */
+        .app-header {
+            margin-bottom: 24px;
+            text-align: left;
+            padding: 0 4px;
+        }
+        .app-header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            background: linear-gradient(135deg, #1f5e7a, #2c7da0);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .app-header .sub {
+            font-size: 0.8rem;
+            color: #5d7e9c;
+            margin-top: 6px;
+            font-weight: 500;
+            border-left: 3px solid #2c7da0;
+            padding-left: 12px;
+        }
+
+        /* 卡片精简 */
+        .card {
+            background: #ffffff;
+            border-radius: 32px;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.02), 0 1px 3px rgba(0, 0, 0, 0.03);
+            padding: 24px 20px;
+            margin-bottom: 24px;
+            border: 1px solid #e6edf4;
+            transition: all 0.2s;
+        }
+        .card-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .card-title {
+            font-weight: 700;
+            font-size: 1.3rem;
+            letter-spacing: -0.2px;
+            color: #1e4a6b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 搜索区强化 */
+        .search-wrapper {
+            position: relative;
+        }
+        .search-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: #ffffff;
+            border-radius: 60px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 14px 20px;
+            border: 1.5px solid #e2edf7;
+            border-radius: 60px;
+            font-size: 1rem;
+            background: #ffffff;
+            font-weight: 500;
+            transition: 0.2s;
+            font-family: 'Inter', monospace;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #2c7da0;
+            box-shadow: 0 0 0 3px rgba(44,125,160,0.12);
+        }
+        button {
+            background: #2c7da0;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        button:active { transform: scale(0.96); background: #1f5e7a; }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #cddfec;
+            color: #2c5a7a;
+            box-shadow: none;
+        }
+        .btn-outline:active { background: #eef3fc; transform: scale(0.96);}
+        .btn-danger { background: #e67e22; }
+        .btn-danger:active { background: #d35400; }
+
+        /* 详情样式 */
+        .detail-item {
+            margin-bottom: 24px;
+            border-bottom: 1px solid #ecf3f9;
+            padding-bottom: 18px;
+        }
+        .detail-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #6b8eb0;
+            margin-bottom: 8px;
+        }
+        .detail-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #1a4058;
+            word-break: break-word;
+            white-space: pre-wrap;
+            line-height: 1.45;
+        }
+        .photo-slider {
+            background: #fafdff;
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid #e2edf7;
+            margin-top: 8px;
+        }
+        .main-photo {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f2b38;
+            min-height: 210px;
+        }
+        .main-photo img { width: 100%; max-height: 280px; object-fit: contain; background: #eff5fa; }
+        .slider-arrows {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 8px;
+            pointer-events: none;
+        }
+        .arrow-btn {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            border-radius: 60px;
+            padding: 8px 14px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            pointer-events: auto;
+            border: none;
+            box-shadow: none;
+        }
+        .thumbnails {
+            display: flex;
+            gap: 10px;
+            padding: 14px;
+            overflow-x: auto;
+            background: #ffffff;
+            border-top: 1px solid #ecf3f9;
+        }
+        .thumb-img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: 0.1s;
+        }
+        .thumb-img.active-thumb { border-color: #2c7da0; transform: scale(0.97); }
+        .grid-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* 管理列表样式 (保留但不影响查询) */
+        .device-list-item {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #eaf1f9;
+        }
+        .device-code-compact {
+            font-weight: 800;
+            font-size: 1rem;
+            font-family: monospace;
+            background: #eef4fa;
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 30px;
+        }
+        .batch-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding: 4px 0;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 44px;
+            padding: 28px 24px;
+        }
+        .form-group input, .form-group textarea {
+            border-radius: 28px;
+            background: #fefefe;
+            border: 1.5px solid #e2edf7;
+            padding: 12px 16px;
+            width: 100%;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            background: #ffffffd9;
+            backdrop-filter: blur(4px);
+            padding: 6px;
+            border-radius: 80px;
+            margin-bottom: 28px;
+            border: 1px solid #eef3fc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            background: transparent;
+            color: #3d6e91;
+            box-shadow: none;
+            border-radius: 60px;
+            font-weight: 600;
+            padding: 10px 12px;
+        }
+        .tab.active {
+            background: #2c7da0;
+            color: white;
+            box-shadow: 0 6px 12px -8px rgba(44,125,160,0.3);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7a9abc;
+        }
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            background: #1f3e4c;
+            color: white;
+            text-align: center;
+            padding: 14px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            z-index: 1200;
+            opacity: 0;
+            transition: 0.2s;
+            pointer-events: none;
+            font-weight: 500;
+            backdrop-filter: blur(12px);
+        }
+        .icon-btn {
+            background: transparent;
+            padding: 8px;
+            box-shadow: none;
+            color: #2c7da0;
+            font-size: 1.1rem;
+        }
+        .icon-btn:active { background: #eef2fc; transform: scale(0.94);}
+        .photo-thumb-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .edit-thumb {
+            position: relative;
+            width: 76px;
+            height: 76px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: #eef3fa;
+        }
+        .del-photo-btn {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #ef4444;
+            color: white;
+            border-radius: 40px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+        }
+        .suggestions-dropdown {
+            position: absolute;
+            top: 62px;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 100;
+            border: 1px solid #eef2ff;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 12px 18px;
+            font-family: monospace;
+            font-weight: 500;
+            border-bottom: 1px solid #f0f2f5;
+            cursor: pointer;
+        }
+        @media (max-width: 500px) {
+            body { padding: 16px 14px 40px; }
+            .card { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <h1>📡 现场操作员离线助手</h1>
+    <div class="sub">离线检索 · 设备档案 · 影像核查</div>
+</div>
+
+<!-- 仅保留查询选项卡，删除原有的“添加设备”栏目入口（查询区无添加按钮），管理面板独立 -->
+<div class="tab-bar">
+    <button class="tab active" data-tab="search">🔍 查询设备</button>
+    <button class="tab" data-tab="manage">📋 数据库管理</button>
+</div>
+
+<!-- 查询面板（干净无添加设备入口，无自检题目框） -->
+<div id="searchPanel" class="panel">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">⚡ 设备快速查询</span>
+            <span style="font-size:0.7rem; background:#eef3fc; padding:4px 12px; border-radius:40px; color:#2c7da0;">离线可用</span>
+        </div>
+        <div class="search-wrapper">
+            <div class="search-group">
+                <input type="text" id="searchCodeInput" class="search-input" placeholder="输入设备编码 (≥3字母自动联想)" autocomplete="off">
+                <button id="searchBtn" style="background:#2c7da0; box-shadow:0 4px 10px rgba(44,125,160,0.2);">🔍 查找</button>
+            </div>
+            <div id="suggestionsList" class="suggestions-dropdown"></div>
+        </div>
+        <!-- 结果展示区 -->
+        <div id="searchResultContainer"><div class="empty-state" style="padding: 32px 16px;">✨ 现场遇难题，助手搜索帮助你</div></div>
+    </div>
+</div>
+
+<!-- 管理面板：设备数据维护（保留批量/导入导出，但无查询选项卡内的添加栏目） -->
+<div id="managePanel" class="panel" style="display: none;">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📦 设备数据库</span>
+            <button id="addNewDeviceBtn" style="background:#3b82f6;">+ 手动添加</button>
+        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap;">
+            <button id="batchImportBtn" class="btn-outline" style="flex:1;">📂 批量导入 (ZIP/JSON)</button>
+            <button id="exportZipBtn" class="btn-outline" style="flex:1;">📦 导出ZIP备份</button>
+        </div>
+        <div class="batch-bar">
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight:500;">
+                <input type="checkbox" id="selectAllCheckbox"> 全选设备
+            </label>
+            <div class="batch-actions">
+                <button id="batchDeleteBtn" class="btn-danger" style="padding: 6px 16px;">🗑️ 批量删除</button>
+            </div>
+        </div>
+        <div id="devicesListContainer"></div>
+    </div>
+</div>
+
+<!-- 添加/编辑模态框（仅管理面板唤起） -->
+<div id="deviceModal" class="modal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index:1000;">
+    <div class="modal-content">
+        <h3 id="modalTitle" style="font-weight:700; margin-bottom: 16px;">添加设备</h3>
+        <form id="deviceForm">
+            <div class="form-group"><label>🔖 设备编码</label><input type="text" id="deviceCode" placeholder="设备编码" required></div>
+            <div class="form-group"><label>⚙️ 中性点设置</label><textarea id="neutralSetting" rows="2" placeholder="中性点设置描述"></textarea></div>
+            <div class="form-group"><label>🚨 应急干预</label><textarea id="emergencyIntervention" rows="3" placeholder="应急措施描述"></textarea></div>
+            <div class="form-group">
+                <label>📸 现场照片 (多张支持滑动)</label>
+                <div class="multi-photo-area">
+                    <button type="button" id="addPhotoBtn" class="btn-outline" style="padding: 8px 16px;">+ 添加照片</button>
+                    <div id="editPhotoList" class="photo-thumb-list"></div>
+                    <input type="file" id="photoFileInput" accept="image/*" multiple style="display: none;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 14px; margin-top: 20px;">
+                <button type="submit" style="flex:1;">💾 保存设备</button>
+                <button type="button" id="closeModalBtn" class="btn-outline" style="flex:0.4;">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toastMsg" class="toast-msg"></div>
+
+<script>
+    let db = null;
+    let currentEditCode = null;
+    let tempPhotos = [];
+    let allDeviceCodesCache = [];
+    let currentResultDevice = null;
+    let currentPhotoIndex = 0;
+
+    function showToast(msg, duration=2200) {
+        const toast = document.getElementById('toastMsg');
+        toast.innerText = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', duration);
+    }
+
+    function isValidCode(code) {
+        return code && code.trim().length > 0;
+    }
+
+    function escapeHtml(str) {
+        if(!str) return '';
+        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    }
+
+    async function refreshCodeCache() {
+        let codes = [];
+        await db.iterate((value, key) => { codes.push(key); });
+        allDeviceCodesCache = codes.sort();
+    }
+
+    async function getDevice(code) { return await db.getItem(code); }
+
+    async function saveDevice(deviceData, originalCode = null) {
+        let code = deviceData.code.trim();
+        if (!isValidCode(code)) { showToast("设备编码不能为空"); return false; }
+        const existing = await getDevice(code);
+        if (existing && originalCode !== code) { showToast(`编码 "${code}" 已存在`); return false; }
+        if (originalCode && originalCode !== code) await db.removeItem(originalCode);
+        const newDevice = {
+            code: code,
+            neutralSetting: deviceData.neutralSetting || '',
+            emergencyIntervention: deviceData.emergencyIntervention || '',
+            photos: deviceData.photos || []
+        };
+        await db.setItem(code, newDevice);
+        showToast(`设备 ${code} 保存成功`);
+        await refreshCodeCache();
+        return true;
+    }
+
+    async function deleteDevice(code) {
+        if(confirm(`确定删除设备 ${code} 吗？`)) {
+            await db.removeItem(code);
+            showToast(`已删除 ${code}`);
+            await refreshCodeCache();
+            renderAllDevicesList();
+            const searchVal = document.getElementById('searchCodeInput').value.trim();
+            if(searchVal === code) clearSearchDisplay();
+            else if(searchVal) searchAndDisplay();
+            else clearSearchDisplay();
+        }
+    }
+
+    async function batchDeleteDevices(codes) {
+        if(!codes.length) { showToast("未选中任何设备"); return; }
+        if(confirm(`确定要删除选中的 ${codes.length} 个设备吗？此操作不可撤销。`)) {
+            for(let code of codes) await db.removeItem(code);
+            await refreshCodeCache();
+            renderAllDevicesList();
+            const searchVal = document.getElementById('searchCodeInput').value.trim();
+            if(codes.includes(searchVal)) clearSearchDisplay();
+            else if(searchVal) searchAndDisplay();
+            showToast(`已删除 ${codes.length} 个设备`);
+        }
+    }
+
+    async function renderAllDevicesList() {
+        const container = document.getElementById('devicesListContainer');
+        let devices = [];
+        await db.iterate((value) => { devices.push(value); });
+        if(devices.length === 0) {
+            container.innerHTML = `<div class="empty-state">📭 暂无设备，点击“手动添加”或导入</div>`;
+            const selectAll = document.getElementById('selectAllCheckbox');
+            if(selectAll) selectAll.checked = false;
+            return;
+        }
+        devices.sort((a,b)=>a.code.localeCompare(b.code));
+        let html = '';
+        for(let dev of devices) {
+            html += `
+                <div class="device-list-item" data-code="${dev.code}">
+                    <div class="checkbox-col">
+                        <input type="checkbox" class="device-checkbox" data-code="${dev.code}" id="chk_${escapeHtml(dev.code)}">
+                    </div>
+                    <div class="device-info-compact">
+                        <div class="device-code-compact">🔖 ${escapeHtml(dev.code)}</div>
+                        <div class="device-meta" style="font-size:0.7rem; margin-top:6px;">⚙️ ${escapeHtml(dev.neutralSetting?.substring(0,30)||'—')} &nbsp; 🚨 ${escapeHtml(dev.emergencyIntervention?.substring(0,28)||'—')}</div>
+                    </div>
+                    <div class="action-icons">
+                        <button class="icon-btn edit-device" data-code="${dev.code}">✏️</button>
+                        <button class="icon-btn delete-device" data-code="${dev.code}">🗑️</button>
+                    </div>
+                </div>`;
+        }
+        container.innerHTML = html;
+        document.querySelectorAll('.edit-device').forEach(btn => btn.addEventListener('click', (e) => openEditModal(btn.getAttribute('data-code'))));
+        document.querySelectorAll('.delete-device').forEach(btn => btn.addEventListener('click', (e) => deleteDevice(btn.getAttribute('data-code'))));
+
+        const checkboxes = document.querySelectorAll('.device-checkbox');
+        const selectAll = document.getElementById('selectAllCheckbox');
+        const updateSelectAll = () => {
+            if(selectAll) {
+                const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+                selectAll.checked = allChecked;
+                selectAll.indeterminate = !allChecked && Array.from(checkboxes).some(cb => cb.checked);
+            }
+        };
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectAll));
+        if(selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            selectAll.onchange = (e) => {
+                const isChecked = e.target.checked;
+                checkboxes.forEach(cb => cb.checked = isChecked);
+                updateSelectAll();
+            };
+        }
+    }
+
+    function openAddModal() {
+        currentEditCode = null;
+        document.getElementById('modalTitle').innerText = '➕ 添加新设备';
+        document.getElementById('deviceForm').reset();
+        document.getElementById('deviceCode').disabled = false;
+        tempPhotos = [];
+        renderEditPhotoList();
+        document.getElementById('deviceModal').style.display = 'flex';
+    }
+
+    async function openEditModal(code) {
+        const device = await getDevice(code);
+        if(!device) return;
+        currentEditCode = code;
+        document.getElementById('modalTitle').innerText = '✏️ 编辑设备';
+        document.getElementById('deviceCode').value = device.code;
+        document.getElementById('deviceCode').disabled = false;
+        document.getElementById('neutralSetting').value = device.neutralSetting || '';
+        document.getElementById('emergencyIntervention').value = device.emergencyIntervention || '';
+        tempPhotos = device.photos ? [...device.photos] : [];
+        renderEditPhotoList();
+        document.getElementById('deviceModal').style.display = 'flex';
+    }
+
+    function renderEditPhotoList() {
+        const container = document.getElementById('editPhotoList');
+        if(!tempPhotos.length) { container.innerHTML = '<div style="font-size:0.7rem; color:#8ba5bc;">➕ 点击按钮添加现场照片</div>'; return; }
+        let html = '';
+        tempPhotos.forEach((photoBase64, idx) => {
+            html += `<div class="edit-thumb"><img src="${photoBase64}" alt="photo"><button type="button" class="del-photo-btn" data-idx="${idx}">✕</button></div>`;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.del-photo-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                tempPhotos.splice(idx,1);
+                renderEditPhotoList();
+            });
+        });
+    }
+
+    document.getElementById('addPhotoBtn')?.addEventListener('click', () => document.getElementById('photoFileInput').click());
+    document.getElementById('photoFileInput')?.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        if(files.length + tempPhotos.length > 12) { showToast("最多支持12张照片"); return; }
+        files.forEach(file => {
+            if(file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (ev) => { tempPhotos.push(ev.target.result); renderEditPhotoList(); };
+                reader.readAsDataURL(file);
+            }
+        });
+        e.target.value = '';
+    });
+
+    document.getElementById('deviceForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        let code = document.getElementById('deviceCode').value.trim();
+        const neutralSetting = document.getElementById('neutralSetting').value;
+        const emergencyIntervention = document.getElementById('emergencyIntervention').value;
+        if(!isValidCode(code)) { showToast("设备编码不能为空"); return; }
+        const deviceData = { code, neutralSetting, emergencyIntervention, photos: tempPhotos };
+        const success = await saveDevice(deviceData, currentEditCode);
+        if(success) {
+            document.getElementById('deviceModal').style.display = 'none';
+            renderAllDevicesList();
+            await refreshCodeCache();
+            const searchVal = document.getElementById('searchCodeInput').value.trim();
+            if(searchVal === code || (currentEditCode && currentEditCode === code)) searchAndDisplay();
+            currentEditCode = null;
+        }
+    });
+
+    document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('deviceModal').style.display = 'none');
+    window.onclick = (e) => { if(e.target === document.getElementById('deviceModal')) document.getElementById('deviceModal').style.display = 'none'; };
+
+    // 搜索联想
+    const searchInput = document.getElementById('searchCodeInput');
+    const suggestionsDiv = document.getElementById('suggestionsList');
+    async function updateSuggestions() {
+        const query = searchInput.value.trim();
+        if(query.length >= 3) {
+            let allCodes = [];
+            await db.iterate((value, key) => { allCodes.push(key); });
+            allCodes.sort();
+            const matched = allCodes.filter(code => code.includes(query)).slice(0, 10);
+            if(matched.length) {
+                suggestionsDiv.innerHTML = matched.map(c => `<div class="suggestion-item" data-code="${escapeHtml(c)}">${escapeHtml(c)}</div>`).join('');
+                suggestionsDiv.style.display = 'block';
+                document.querySelectorAll('.suggestion-item').forEach(el => {
+                    el.removeEventListener('click', suggestionClickHandler);
+                    el.addEventListener('click', suggestionClickHandler);
+                });
+                return;
+            }
+        }
+        suggestionsDiv.style.display = 'none';
+    }
+    function suggestionClickHandler(e) {
+        const code = e.currentTarget.getAttribute('data-code');
+        searchInput.value = code;
+        suggestionsDiv.style.display = 'none';
+        searchAndDisplay();
+    }
+    searchInput.addEventListener('input', updateSuggestions);
+    document.addEventListener('click', (e) => {
+        if(!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) suggestionsDiv.style.display = 'none';
+    });
+
+    async function searchAndDisplay() {
+        const codeInput = document.getElementById('searchCodeInput').value.trim();
+        if(!codeInput) { showToast("请输入编码"); return; }
+        const device = await getDevice(codeInput);
+        const container = document.getElementById('searchResultContainer');
+        if(!device) {
+            container.innerHTML = `<div class="empty-state">⚠️ 未找到设备 "${escapeHtml(codeInput)}" ，请先在数据库中添加</div>`;
+            currentResultDevice = null;
+            return;
+        }
+        currentResultDevice = device;
+        currentPhotoIndex = 0;
+        renderDeviceDetailWithSlider(device);
+    }
+
+    function renderDeviceDetailWithSlider(device) {
+        const container = document.getElementById('searchResultContainer');
+        const photos = device.photos || [];
+        const hasPhotos = photos.length > 0;
+        let sliderHtml = '';
+        if(hasPhotos) {
+            sliderHtml = `<div class="photo-slider" id="resultSlider"><div class="slider-container"><div class="main-photo" id="mainPhotoContainer"><img id="currentMainPhoto" src="${photos[0]}" alt="现场照片"><div class="slider-arrows"><button class="arrow-btn" id="prevPhotoBtn">‹</button><button class="arrow-btn" id="nextPhotoBtn">›</button></div></div><div class="thumbnails" id="thumbnailsContainer"></div><div class="photo-counter" id="photoCounter" style="text-align:center;font-size:0.7rem;padding:6px;"></div></div></div>`;
+        } else {
+            sliderHtml = `<div class="photo-slider"><div class="empty-photo" style="padding:32px;text-align:center;">📷 暂无现场照片，请在编辑中添加</div></div>`;
+        }
+        const detailHtml = `
+            <div class="detail-item"><div class="detail-label">📟 设备编码</div><div class="detail-value" style="font-family: monospace;">${escapeHtml(device.code)}</div></div>
+            <div class="detail-item"><div class="detail-label">🖼️ 现场影像 (滑动/缩略图)</div>${sliderHtml}</div>
+            <div class="detail-item"><div class="detail-label">⚡ 中性点设置</div><div class="detail-value" style="white-space: pre-wrap;">${escapeHtml(device.neutralSetting) || '未设置'}</div></div>
+            <div class="detail-item"><div class="detail-label">🚨 应急干预</div><div class="detail-value" style="white-space: pre-wrap;">${escapeHtml(device.emergencyIntervention) || '无预案记录'}</div></div>
+            <div class="grid-actions"><button id="quickEditFromSearch" class="btn-outline" style="flex:1;">✏️ 编辑此设备</button><button id="quickDelFromSearch" class="btn-danger" style="flex:1;">🗑️ 删除设备</button></div>
+        `;
+        container.innerHTML = detailHtml;
+        if(hasPhotos) bindSliderEvents(device);
+        document.getElementById('quickEditFromSearch')?.addEventListener('click', () => openEditModal(device.code));
+        document.getElementById('quickDelFromSearch')?.addEventListener('click', () => { deleteDevice(device.code); clearSearchDisplay(); });
+    }
+
+    function bindSliderEvents(device) {
+        const photos = device.photos || [];
+        if(photos.length === 0) return;
+        const updateSlider = () => {
+            const mainImg = document.getElementById('currentMainPhoto');
+            if(mainImg) mainImg.src = photos[currentPhotoIndex];
+            const thumbContainer = document.getElementById('thumbnailsContainer');
+            if(thumbContainer) {
+                thumbContainer.innerHTML = photos.map((p, idx) => `<img class="thumb-img ${idx===currentPhotoIndex ? 'active-thumb' : ''}" data-idx="${idx}" src="${p}" style="width:64px;height:64px;">`).join('');
+                document.querySelectorAll('.thumb-img').forEach(thumb => thumb.addEventListener('click', (e) => { currentPhotoIndex = parseInt(thumb.getAttribute('data-idx')); updateSlider(); }));
+            }
+            const counter = document.getElementById('photoCounter');
+            if(counter) counter.innerText = `${currentPhotoIndex+1} / ${photos.length}`;
+        };
+        updateSlider();
+        document.getElementById('prevPhotoBtn')?.addEventListener('click', () => { if(photos.length) { currentPhotoIndex = (currentPhotoIndex-1+photos.length)%photos.length; updateSlider(); } });
+        document.getElementById('nextPhotoBtn')?.addEventListener('click', () => { if(photos.length) { currentPhotoIndex = (currentPhotoIndex+1)%photos.length; updateSlider(); } });
+    }
+
+    function clearSearchDisplay() {
+        const container = document.getElementById('searchResultContainer');
+        if(container) container.innerHTML = `<div class="empty-state" style="padding: 32px 16px;">✨ 输入编码，设备信息即刻呈现</div>`;
+        currentResultDevice = null;
+    }
+
+    // 导出全部设备 (完整)
+    async function exportToZip() {
+        const keys = await db.keys();
+        if (keys.length === 0) { showToast("无数据可导出"); return; }
+        const devices = [];
+        for (const key of keys) { const device = await db.getItem(key); if(device) devices.push(device); }
+        const zip = new JSZip();
+        const exportDevices = [];
+        const photosFolder = zip.folder("photos");
+        for (let dev of devices) {
+            const deviceInfo = { code: dev.code, neutralSetting: dev.neutralSetting || '', emergencyIntervention: dev.emergencyIntervention || '', imageFiles: [] };
+            if (dev.photos && dev.photos.length) {
+                for (let i = 0; i < dev.photos.length; i++) {
+                    const base64 = dev.photos[i];
+                    let ext = 'jpg';
+                    if (base64.startsWith('data:image/png')) ext = 'png';
+                    else if (base64.startsWith('data:image/jpeg')) ext = 'jpg';
+                    else if (base64.startsWith('data:image/gif')) ext = 'gif';
+                    else if (base64.startsWith('data:image/webp')) ext = 'webp';
+                    const fileName = `${dev.code}_${i}.${ext}`;
+                    const byteString = atob(base64.split(',')[1]);
+                    const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    for (let j = 0; j < byteString.length; j++) ia[j] = byteString.charCodeAt(j);
+                    const blob = new Blob([ab], { type: mimeString });
+                    photosFolder.file(fileName, blob);
+                    deviceInfo.imageFiles.push(fileName);
+                }
+            }
+            exportDevices.push(deviceInfo);
+        }
+        zip.file("devices.json", JSON.stringify(exportDevices, null, 2));
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        a.href = url; a.download = `离线助手备份_${timestamp}.zip`; a.click();
+        URL.revokeObjectURL(url);
+        showToast(`导出ZIP成功，共 ${devices.length} 台设备`);
+    }
+
+    async function universalImport() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.zip,.json';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            if(ext === 'zip') { try { await importFromZip(file); } catch(err) { showToast("ZIP解析失败: "+err.message); } }
+            else if(ext === 'json') {
+                const text = await file.text();
+                try {
+                    const imported = JSON.parse(text);
+                    if(!Array.isArray(imported)) throw new Error();
+                    let success=0, skip=0;
+                    for(let item of imported) {
+                        if(!item.code || !item.code.trim()) { skip++; continue; }
+                        if(await getDevice(item.code)) { skip++; continue; }
+                        let photosArray = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
+                        await db.setItem(item.code, { code: item.code, neutralSetting: item.neutralSetting || '', emergencyIntervention: item.emergencyIntervention || '', photos: photosArray });
+                        success++;
+                    }
+                    await refreshCodeCache(); renderAllDevicesList();
+                    showToast(`JSON导入完成: 新增 ${success} 项，跳过 ${skip} 项`);
+                } catch(err) { showToast("JSON格式错误"); }
+            } else { showToast("请选择 .zip 或 .json 文件"); }
+        };
+        input.click();
+    }
+    async function importFromZip(file) {
+        const zip = new JSZip();
+        const content = await zip.loadAsync(file);
+        const jsonFile = content.file("devices.json");
+        if(!jsonFile) { showToast("ZIP中缺少devices.json"); return; }
+        const jsonText = await jsonFile.async("string");
+        const importedDevices = JSON.parse(jsonText);
+        let successCount = 0, skipCount = 0;
+        for(let item of importedDevices) {
+            if(!item.code?.trim()) { skipCount++; continue; }
+            if(await getDevice(item.code)) { skipCount++; continue; }
+            const photos = [];
+            if(item.imageFiles?.length) {
+                for(let fileName of item.imageFiles) {
+                    const photoFile = content.file(`photos/${fileName}`);
+                    if(photoFile) {
+                        const blob = await photoFile.async("blob");
+                        const base64 = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsDataURL(blob); });
+                        photos.push(base64);
+                    }
+                }
+            }
+            await db.setItem(item.code, { code: item.code, neutralSetting: item.neutralSetting || '', emergencyIntervention: item.emergencyIntervention || '', photos });
+            successCount++;
+        }
+        await refreshCodeCache(); renderAllDevicesList();
+        showToast(`ZIP导入完成: 新增 ${successCount} 项，跳过 ${skipCount} 项`);
+    }
+
+    document.getElementById('batchDeleteBtn')?.addEventListener('click', () => {
+        const checkedBoxes = document.querySelectorAll('.device-checkbox:checked');
+        const codesToDelete = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-code'));
+        batchDeleteDevices(codesToDelete);
+    });
+    async function migrateOldData() {
+        let needUpdate = false;
+        await db.iterate(async (value, key) => {
+            if(value.photo && !value.photos) { value.photos = [value.photo]; delete value.photo; await db.setItem(key, value); needUpdate = true; }
+            if(!value.photos) value.photos = [];
+        });
+        if(needUpdate) showToast("已自动升级多图格式", 1200);
+        await refreshCodeCache();
+    }
+    async function init() {
+        db = localforage.createInstance({ name: "DeviceManagerApp", storeName: "devices" });
+        const count = await db.length();
+        if(count === 0) {
+            const demo = [
+                { code: "XK9T3M8N2P", neutralSetting: "直接接地", emergencyIntervention: "立即断开断路器，检查绝缘", photos: [] },
+                { code: "A8B2C5D9E1", neutralSetting: "经消弧线圈接地", emergencyIntervention: "监控零序电压，通知运维", photos: [] },
+                { code: "Q7W4E2R9T0", neutralSetting: "不接地", emergencyIntervention: "启动备用电源，隔离故障区", photos: [] }
+            ];
+            for(let d of demo) await db.setItem(d.code, d);
+        }
+        await migrateOldData();
+        renderAllDevicesList();
+        await refreshCodeCache();
+
+        document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.getAttribute('data-tab');
+            document.getElementById('searchPanel').style.display = target === 'search' ? 'block' : 'none';
+            document.getElementById('managePanel').style.display = target === 'manage' ? 'block' : 'none';
+            if(target === 'manage') renderAllDevicesList();
+        }));
+        document.getElementById('searchBtn').addEventListener('click', searchAndDisplay);
+        document.getElementById('addNewDeviceBtn').addEventListener('click', openAddModal);
+        document.getElementById('batchImportBtn').addEventListener('click', universalImport);
+        document.getElementById('exportZipBtn').addEventListener('click', exportToZip);
+        searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') searchAndDisplay(); });
+    }
+    init();
+</script>
+</body>
+</html>
